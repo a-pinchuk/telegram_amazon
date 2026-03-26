@@ -1,0 +1,9 @@
+services:
+  bot:
+    build: .
+    container_name: telegram_amazon_bot
+    restart: always
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
