@@ -1,12 +1,13 @@
 import asyncio
 import logging
 import os
-import sys
+import traceback
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import ErrorEvent
 
 from bot.config import Settings
 from bot.db.engine import create_engine, create_session_factory
@@ -20,6 +21,8 @@ from bot.handlers.admin.view_reports import router as admin_reports_router
 from bot.handlers.employee.daily_report import router as employee_report_router
 from bot.handlers.employee.my_stats import router as employee_stats_router
 from bot.handlers.employee.edit_report import router as employee_edit_router
+
+logger = logging.getLogger(__name__)
 
 
 async def main():
@@ -51,9 +54,16 @@ async def main():
 
     dp = Dispatcher(storage=MemoryStorage())
 
-    # Middleware
-    dp.update.outer_middleware(DbSessionMiddleware(session_factory))
-    dp.update.outer_middleware(AuthMiddleware(admin_ids=settings.admin_ids))
+    # Error handler — log all errors
+    @dp.errors()
+    async def error_handler(event: ErrorEvent):
+        logger.error("Unhandled error: %s", event.exception, exc_info=event.exception)
+
+    # Middleware (order: DbSession first, then Auth uses the session)
+    dp.message.outer_middleware(DbSessionMiddleware(session_factory))
+    dp.message.outer_middleware(AuthMiddleware(admin_ids=settings.admin_ids))
+    dp.callback_query.outer_middleware(DbSessionMiddleware(session_factory))
+    dp.callback_query.outer_middleware(AuthMiddleware(admin_ids=settings.admin_ids))
 
     # Routers (order matters — more specific first)
     dp.include_routers(
@@ -65,7 +75,7 @@ async def main():
         admin_reports_router,
     )
 
-    logging.info("Bot starting...")
+    logger.info("Bot starting...")
     await dp.start_polling(bot)
 
 
