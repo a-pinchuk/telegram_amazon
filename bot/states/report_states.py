@@ -2,9 +2,18 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 class DailyReportFSM(StatesGroup):
-    # Step 1: Listings
-    select_listing_countries = State()
-    enter_listing_count = State()
+    # Step 1a: Processed listings
+    select_processed_countries = State()
+    enter_processed_count = State()
+
+    # Step 1b: Published listings
+    select_published_countries = State()
+    enter_published_count = State()
+
+    # Step 1c: Blocked listings
+    select_blocked_countries = State()
+    enter_blocked_count = State()
+    enter_block_reason = State()
 
     # Step 2: Instructions
     enter_total_instructions = State()
@@ -16,8 +25,13 @@ class DailyReportFSM(StatesGroup):
 
 
 class EditReportFSM(StatesGroup):
-    select_listing_countries = State()
-    enter_listing_count = State()
+    select_processed_countries = State()
+    enter_processed_count = State()
+    select_published_countries = State()
+    enter_published_count = State()
+    select_blocked_countries = State()
+    enter_blocked_count = State()
+    enter_block_reason = State()
     enter_total_instructions = State()
     select_instruction_countries = State()
     enter_instruction_count = State()

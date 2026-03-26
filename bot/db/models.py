@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import BigInteger, Date, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -53,11 +53,14 @@ class ListingEntry(Base):
         ForeignKey("daily_reports.id", ondelete="CASCADE"), nullable=False
     )
     country_code: Mapped[str] = mapped_column(String(10), nullable=False)
+    listing_type: Mapped[str] = mapped_column(String(20), nullable=False, default="processed")
+    # listing_type: "processed" (Обработано), "published" (Выставлено), "blocked" (Заблокировано)
     count: Mapped[int] = mapped_column(default=0)
+    block_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     report: Mapped["DailyReport"] = relationship(back_populates="listing_entries")
 
-    __table_args__ = (UniqueConstraint("report_id", "country_code"),)
+    __table_args__ = (UniqueConstraint("report_id", "country_code", "listing_type"),)
 
 
 class InstructionEntry(Base):
@@ -73,3 +76,15 @@ class InstructionEntry(Base):
     report: Mapped["DailyReport"] = relationship(back_populates="instruction_entries")
 
     __table_args__ = (UniqueConstraint("report_id", "country_code"),)
+
+
+# Listing type constants
+LISTING_PROCESSED = "processed"
+LISTING_PUBLISHED = "published"
+LISTING_BLOCKED = "blocked"
+
+LISTING_TYPE_LABELS = {
+    LISTING_PROCESSED: "📋 Обработано",
+    LISTING_PUBLISHED: "✅ Выставлено",
+    LISTING_BLOCKED: "🚫 Заблокировано",
+}

@@ -4,7 +4,10 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from bot.db.models import DailyReport, ListingEntry, InstructionEntry
+from bot.db.models import (
+    DailyReport, ListingEntry, InstructionEntry,
+    LISTING_PROCESSED, LISTING_PUBLISHED, LISTING_BLOCKED,
+)
 
 
 async def get_report(session: AsyncSession, user_id: int, report_date: date) -> DailyReport | None:
@@ -21,9 +24,14 @@ async def create_report(
     user_id: int,
     report_date: date,
     total_instructions: int,
-    listing_data: dict[str, int],
+    listing_data: dict[str, dict[str, int]],
+    blocked_reasons: dict[str, str],
     instruction_data: dict[str, int],
 ) -> DailyReport:
+    """
+    listing_data: {listing_type: {country_code: count}}
+    e.g. {"processed": {"UK": 5, "FR": 3}, "published": {"UK": 2}, "blocked": {"ES": 1}}
+    """
     report = DailyReport(
         user_id=user_id,
         report_date=report_date,
@@ -33,11 +41,21 @@ async def create_report(
     session.add(report)
     await session.flush()
 
-    for code, count in listing_data.items():
-        session.add(ListingEntry(report_id=report.id, country_code=code, count=count))
+    for listing_type, countries in listing_data.items():
+        for code, count in countries.items():
+            if count > 0:
+                entry = ListingEntry(
+                    report_id=report.id,
+                    country_code=code,
+                    listing_type=listing_type,
+                    count=count,
+                    block_reason=blocked_reasons.get(code) if listing_type == LISTING_BLOCKED else None,
+                )
+                session.add(entry)
 
     for code, count in instruction_data.items():
-        session.add(InstructionEntry(report_id=report.id, country_code=code, count=count))
+        if count > 0:
+            session.add(InstructionEntry(report_id=report.id, country_code=code, count=count))
 
     await session.flush()
     return report
@@ -47,7 +65,8 @@ async def update_report(
     session: AsyncSession,
     report: DailyReport,
     total_instructions: int,
-    listing_data: dict[str, int],
+    listing_data: dict[str, dict[str, int]],
+    blocked_reasons: dict[str, str],
     instruction_data: dict[str, int],
 ) -> DailyReport:
     report.total_instructions = total_instructions
@@ -61,10 +80,20 @@ async def update_report(
     await session.flush()
 
     # Insert new entries
-    for code, count in listing_data.items():
-        session.add(ListingEntry(report_id=report.id, country_code=code, count=count))
+    for listing_type, countries in listing_data.items():
+        for code, count in countries.items():
+            if count > 0:
+                session.add(ListingEntry(
+                    report_id=report.id,
+                    country_code=code,
+                    listing_type=listing_type,
+                    count=count,
+                    block_reason=blocked_reasons.get(code) if listing_type == LISTING_BLOCKED else None,
+                ))
+
     for code, count in instruction_data.items():
-        session.add(InstructionEntry(report_id=report.id, country_code=code, count=count))
+        if count > 0:
+            session.add(InstructionEntry(report_id=report.id, country_code=code, count=count))
 
     await session.flush()
     return report
@@ -102,6 +131,7 @@ async def get_aggregated_listings(
     start_date: date,
     end_date: date,
     user_id: int | None = None,
+    listing_type: str | None = None,
 ) -> list[tuple[str, int]]:
     """Returns list of (country_code, total_count) for listings."""
     query = (
@@ -117,6 +147,8 @@ async def get_aggregated_listings(
     )
     if user_id is not None:
         query = query.where(DailyReport.user_id == user_id)
+    if listing_type is not None:
+        query = query.where(ListingEntry.listing_type == listing_type)
 
     result = await session.execute(query)
     return list(result.all())
@@ -129,7 +161,6 @@ async def get_aggregated_instructions(
     user_id: int | None = None,
 ) -> tuple[int, list[tuple[str, int]]]:
     """Returns (total_instructions, [(country_code, total_count)])."""
-    # Total instructions created
     total_query = (
         select(func.sum(DailyReport.total_instructions))
         .where(
@@ -144,7 +175,6 @@ async def get_aggregated_instructions(
     total_result = await session.execute(total_query)
     total = total_result.scalar() or 0
 
-    # By country
     country_query = (
         select(InstructionEntry.country_code, func.sum(InstructionEntry.count))
         .join(DailyReport)

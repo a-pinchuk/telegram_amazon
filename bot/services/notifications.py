@@ -15,13 +15,15 @@ async def notify_admins_new_report(
     session: AsyncSession,
     employee: User,
     report_date: str,
-    listing_data: dict[str, int],
+    processed: dict[str, int],
+    published: dict[str, int],
+    blocked: dict[str, int],
+    blocked_reasons: dict[str, str],
     total_instructions: int,
     instruction_data: dict[str, int],
     is_edit: bool = False,
 ):
     """Send notification to all admins when an employee submits/edits a report."""
-    # Get all active admins
     result = await session.execute(
         select(User).where(User.role == "admin", User.is_active == True)
     )
@@ -30,21 +32,31 @@ async def notify_admins_new_report(
     if not admins:
         return
 
-    # Build notification text
     action = "✏️ Отчет изменён" if is_edit else "📩 Новый отчет"
-
     lines = [f"{action} от <b>{employee.full_name}</b> ({report_date})\n"]
 
-    # Listings
-    listing_parts = []
-    for code, count in listing_data.items():
-        c = COUNTRIES.get(code)
-        if c:
-            listing_parts.append(f"{c['flag']} {count}")
-    if listing_parts:
-        lines.append(f"📦 Листинги: {', '.join(listing_parts)}")
+    def _format_countries(data: dict[str, int]) -> str:
+        parts = []
+        for code, count in data.items():
+            c = COUNTRIES.get(code)
+            if c:
+                parts.append(f"{c['flag']} {count}")
+        return ", ".join(parts) if parts else "—"
 
-    # Instructions
+    if processed:
+        lines.append(f"📋 Обработано: {_format_countries(processed)}")
+    if published:
+        lines.append(f"✅ Выставлено: {_format_countries(published)}")
+    if blocked:
+        blocked_parts = []
+        for code, count in blocked.items():
+            c = COUNTRIES.get(code)
+            if c:
+                reason = blocked_reasons.get(code, "")
+                r = f" ({reason})" if reason else ""
+                blocked_parts.append(f"{c['flag']} {count}{r}")
+        lines.append(f"🚫 Заблокировано: {', '.join(blocked_parts)}")
+
     instr_parts = []
     for code, count in instruction_data.items():
         c = COUNTRIES.get(code)
@@ -55,8 +67,9 @@ async def notify_admins_new_report(
 
     text = "\n".join(lines)
 
-    # Send to each admin
     for admin in admins:
+        if admin.telegram_id == employee.telegram_id:
+            continue  # Don't notify admin about their own report
         try:
             await bot.send_message(admin.telegram_id, text)
         except Exception as e:

@@ -21,8 +21,9 @@ def participant_menu() -> ReplyKeyboardMarkup:
 def admin_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text=BTN_VIEW_REPORTS)],
-            [KeyboardButton(text=BTN_MANAGE_USERS)],
+            [KeyboardButton(text=BTN_SUBMIT_REPORT)],
+            [KeyboardButton(text=BTN_MY_STATS), KeyboardButton(text=BTN_EDIT_REPORT)],
+            [KeyboardButton(text=BTN_VIEW_REPORTS), KeyboardButton(text=BTN_MANAGE_USERS)],
         ],
         resize_keyboard=True,
     )
