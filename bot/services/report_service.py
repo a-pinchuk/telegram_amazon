@@ -11,7 +11,7 @@ from bot.utils.formatting import (
 )
 
 
-def get_period_dates(period: str, tz_name: str = "Europe/Kiev") -> tuple[date, date, str]:
+def get_period_dates(period: str, tz_name: str = "Europe/Kyiv") -> tuple[date, date, str]:
     """Return (start_date, end_date, label) for a named period."""
     tz = zoneinfo.ZoneInfo(tz_name)
     today = datetime.now(tz).date()

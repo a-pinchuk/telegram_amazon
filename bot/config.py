@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     bot_token: str
     database_url: str = "sqlite+aiosqlite:///./data/bot.db"
     admin_ids: list[int] = []
-    timezone: str = "Europe/Kiev"
+    timezone: str = "Europe/Kyiv"
 
     @field_validator("admin_ids", mode="before")
     @classmethod

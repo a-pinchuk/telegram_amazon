@@ -23,7 +23,7 @@ router.message.filter(IsParticipant())
 router.callback_query.filter(IsParticipant())
 
 
-def _get_today(tz_name: str = "Europe/Kiev"):
+def _get_today(tz_name: str = "Europe/Kyiv"):
     return datetime.now(zoneinfo.ZoneInfo(tz_name)).date()
 
 
