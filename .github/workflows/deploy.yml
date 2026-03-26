@@ -17,4 +17,6 @@ jobs:
           script: |
             cd /root/telegram_amazon
             git pull origin main
-            docker compose up -d --build
+            source venv/bin/activate
+            pip install -r requirements.txt
+            systemctl restart telegram-amazon
